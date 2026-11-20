@@ -1,0 +1,160 @@
+<template>
+  <div class="page">
+    <list class="list">
+      <list-item class="list-item-title">
+        <div class="title-box">
+          <text class="header-title">设置</text>
+        </div>
+      </list-item>
+
+      <list-item class="list-item-label">
+        <div class="label-box">
+          <text class="label-text">选择模型</text>
+        </div>
+      </list-item>
+
+      <list-item
+        class="list-item-model"
+        for="{{(idx, m) in models}}"
+        tid="id"
+        @click="selectModel(m.id)"
+      >
+        <div class="model-item {{m.active ? 'model-active' : ''}}">
+          <div class="model-info">
+            <text class="model-name">{{m.name}}</text>
+            <text class="model-desc">{{m.desc}}</text>
+          </div>
+        </div>
+      </list-item>
+
+      <list-item class="list-item-label">
+        <div class="label-box">
+          <text class="label-text">数据管理</text>
+        </div>
+      </list-item>
+
+      <list-item class="list-item-btn">
+        <div class="clear-btn" @click="clearChatHistory">
+          <text class="clear-text">清空AI对话聊天记录</text>
+        </div>
+      </list-item>
+    </list>
+  </div>
+</template>
+
+<style>
+  .page { width: 240px; height: 240px; background-color: #0a0a0a; flex-direction: column; }
+  .list { flex: 1; width: 240px; }
+  .list-item-title { width: 240px; height: 48px; }
+  .title-box { width: 100%; height: 100%; justify-content: center; align-items: center; }
+  .header-title { font-size: 28px; color: #ffffff; font-weight: bold; }
+  .list-item-label { width: 240px; height: 36px; }
+  .label-box { width: 100%; height: 100%; padding-left: 14px; flex-direction: row; align-items: center; }
+  .label-text { font-size: 20px; color: #888888; }
+  .list-item-model { width: 240px; height: 60px; }
+  .model-item {
+    width: 220px;
+    height: 52px;
+    margin-left: 10px;
+    margin-right: 10px;
+    background-color: #1a1a1a;
+    border-radius: 12px;
+    border-width: 2px;
+    border-color: #1a1a1a;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .model-item:active { background-color: #2a2a2a; }
+  .model-active {
+    background-color: #0d3d5c;
+    border-color: #1691fa;
+  }
+  .model-info { flex-direction: column; }
+  .model-name { font-size: 22px; color: #ffffff; font-weight: bold; }
+  .model-desc { font-size: 16px; color: #aaaaaa; }
+  .list-item-btn { width: 240px; height: 72px; }
+  .clear-btn {
+    width: 220px;
+    height: 52px;
+    margin-left: 10px;
+    margin-right: 10px;
+    background-color: #d0332a;
+    border-radius: 26px;
+    justify-content: center;
+    align-items: center;
+  }
+  .clear-btn:active { background-color: #a82820; }
+  .clear-text { font-size: 22px; color: #ffffff; font-weight: bold; }
+</style>
+
+<script>
+  import storage from '@system.storage';
+  import file from '@system.file';
+  import prompt from '@system.prompt';
+
+  export default {
+    data: {
+      currentModel: 'Spark-X2.6',
+      models: [
+        { id: 'Spark-X2.6', name: 'Spark-X2.6', desc: '快速响应', active: true },
+        { id: 'MiniMax-M3', name: 'MiniMax-M3', desc: '大模型', active: false },
+        { id: 'MiniMax-M2.7', name: 'MiniMax-M2.7', desc: '通用对话', active: false },
+        { id: 'Kimi-K2.6', name: 'Kimi-K2.6', desc: '长上下文', active: false },
+        { id: 'glm-4.5-air', name: 'glm-4.5-air', desc: '轻量模型', active: false }
+      ]
+    },
+    onInit() {
+      storage.get({
+        key: 'currentModel',
+        success: (data) => {
+          if (data && data.length > 0) {
+            this.currentModel = data;
+            this.refreshActive();
+          }
+        },
+        fail: () => {}
+      });
+    },
+    refreshActive() {
+      let newModels = [];
+      for (let i = 0; i < this.models.length; i++) {
+        let m = this.models[i];
+        newModels.push({
+          id: m.id,
+          name: m.name,
+          desc: m.desc,
+          active: m.id === this.currentModel
+        });
+      }
+      this.models = newModels;
+    },
+    selectModel(id) {
+      this.currentModel = id;
+      this.refreshActive();
+      storage.set({
+        key: 'currentModel',
+        value: id,
+        success: () => {
+          prompt.showToast({ message: '已切换' });
+        },
+        fail: () => {
+          prompt.showToast({ message: '切换失败' });
+        }
+      });
+    },
+    clearChatHistory() {
+      file.delete({
+        uri: 'internal://app/chat_history.json',
+        success: () => {
+          prompt.showToast({ message: '聊天记录已清空' });
+        },
+        fail: (err, code) => {
+          console.log('clear fail code=' + code);
+          prompt.showToast({ message: '聊天记录已清空' });
+        }
+      });
+    }
+  };
+</script>

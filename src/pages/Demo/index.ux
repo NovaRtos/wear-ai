@@ -1,0 +1,103 @@
+<template>
+  <div class="page">
+    <list class="list">
+      <list-item class="list-item-header">
+        <div class="header">
+          <image class="logo" src="/assets/images/logo.png"></image>
+          <text class="title">腕上AI</text>
+        </div>
+      </list-item>
+      <list-item
+        class="list-item-card"
+        for="{{(index, item) in menuList}}"
+        tid="id"
+        @click="goPage(item.uri)"
+      >
+        <div class="card">
+          <image class="card-icon" src="{{item.icon}}"></image>
+          <text class="card-text">{{item.name}}</text>
+        </div>
+      </list-item>
+    </list>
+  </div>
+</template>
+
+<style>
+  .page {
+    width: 240px;
+    height: 240px;
+    background-color: #000000;
+    flex-direction: column;
+  }
+  .list {
+    flex: 1;
+    width: 240px;
+  }
+  .list-item-header {
+    width: 240px;
+    height: 50px;
+  }
+  .header {
+    width: 100%;
+    height: 100%;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 10px;
+  }
+  .logo {
+    width: 36px;
+    height: 36px;
+    margin-right: 10px;
+  }
+  .title {
+    font-size: 28px;
+    color: #ffffff;
+    font-weight: bold;
+  }
+  .list-item-card {
+    width: 240px;
+    height: 62px;
+  }
+  .card {
+    width: 224px;
+    height: 58px;
+    background-color: #1a1a1a;
+    border-radius: 16px;
+    margin-left: 8px;
+    margin-right: 8px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 16px;
+  }
+  .card:active {
+    background-color: #2a2a2a;
+  }
+  .card-icon {
+    width: 40px;
+    height: 40px;
+    margin-right: 16px;
+  }
+  .card-text {
+    font-size: 28px;
+    color: #ffffff;
+  }
+</style>
+
+<script>
+  import router from '@system.router';
+
+  export default {
+    data: {
+      menuList: [
+        { id: 'chat', name: 'AI对话', icon: '/assets/images/chat.png', uri: 'pages/chat' },
+        { id: 'translate', name: 'AI翻译', icon: '/assets/images/tran.png', uri: 'pages/translate' },
+        { id: 'saying', name: '随机一言', icon: '/assets/images/quote.png', uri: 'pages/saying' },
+        { id: 'settings', name: '设置', icon: '/assets/images/set.png', uri: 'pages/settings' },
+        { id: 'about', name: '关于', icon: '/assets/images/about.png', uri: 'pages/about' }
+      ]
+    },
+    goPage(uri) {
+      router.push({ uri: uri });
+    }
+  };
+</script>

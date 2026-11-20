@@ -1,0 +1,50 @@
+<template>
+  <div class="page">
+    <list class="list">
+      <list-item class="list-item-title">
+        <div class="title-box">
+          <text class="header-title">关于</text>
+        </div>
+      </list-item>
+      <list-item class="list-item-logo">
+        <div class="logo-wrapper">
+          <image class="logo" src="/assets/images/logo.png"></image>
+        </div>
+      </list-item>
+      <list-item class="list-item-info">
+        <div class="info-box">
+          <text class="app-name">腕上AI</text>
+          <text class="version">版本 1.0.2</text>
+          <text class="qqgroup">QQ群：133474092</text>
+          <text class="dev">开发者：小猪</text>
+        </div>
+      </list-item>
+    </list>
+  </div>
+</template>
+
+<style>
+  .page { width: 240px; height: 240px; background-color: #0a0a0a; flex-direction: column; }
+  .list { flex: 1; width: 240px; }
+  .list-item-title { width: 240px; height: 48px; }
+  .title-box { width: 100%; height: 100%; justify-content: center; align-items: center; }
+  .header-title { font-size: 28px; color: #ffffff; font-weight: bold; }
+  .list-item-logo { width: 240px; height: 88px; }
+  .logo-wrapper {
+    width: 72px; height: 72px; margin-left: 84px;
+    border-radius: 36px; background-color: #1a1a1a;
+    justify-content: center; align-items: center;
+    border-width: 1px; border-color: #2a2a2a;
+  }
+  .logo { width: 52px; height: 52px; }
+  .list-item-info { width: 240px; }
+  .info-box { width: 220px; margin-left: 10px; margin-right: 10px; flex-direction: column; align-items: center; padding: 8px; }
+  .app-name { font-size: 30px; color: #ffffff; font-weight: bold; margin-bottom: 8px; }
+  .version { font-size: 20px; color: #888888; margin-bottom: 8px; }
+  .qqgroup { font-size: 22px; color: #4cdf8b; margin-top: 6px; }
+  .dev { font-size: 22px; color: #1691fa; margin-top: 6px; }
+</style>
+
+<script>
+  export default {};
+</script>

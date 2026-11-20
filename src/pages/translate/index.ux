@@ -1,0 +1,217 @@
+<template>
+  <div class="page">
+    <list class="list">
+      <list-item class="list-item-title">
+        <div class="title-box">
+          <text class="header-title">AI翻译</text>
+        </div>
+      </list-item>
+      <list-item class="list-item-input">
+        <div class="input-box" @click="openInput">
+          <text class="{{sourceText ? 'input-text' : 'input-placeholder'}}">{{sourceText || '输入内容'}}</text>
+        </div>
+      </list-item>
+      <list-item class="list-item-btn">
+        <div class="translate-btn" @click="doTranslate">
+          <text class="translate-text">翻译</text>
+        </div>
+      </list-item>
+      <list-item class="list-item-result">
+        <div class="result-section">
+          <text class="section-label">翻译结果</text>
+          <div class="result-box">
+            <text class="result-text">{{targetText || '等待翻译...'}}</text>
+          </div>
+        </div>
+      </list-item>
+    </list>
+
+    <div class="loading-mask" show="{{loading}}">
+      <div class="loading-box">
+        <text class="loading-text">翻译中...</text>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style>
+  .page {
+    width: 240px;
+    height: 240px;
+    background-color: #000000;
+    flex-direction: column;
+  }
+  .list {
+    flex: 1;
+    width: 240px;
+  }
+  .list-item-title {
+    width: 240px;
+    height: 44px;
+  }
+  .title-box {
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    align-items: center;
+  }
+  .header-title {
+    font-size: 26px;
+    color: #ffffff;
+    font-weight: bold;
+  }
+  .list-item-input {
+    width: 240px;
+    height: 62px;
+  }
+  .input-box {
+    width: 220px;
+    height: 56px;
+    margin-left: 10px;
+    margin-right: 10px;
+    background-color: #1a1a1a;
+    border-radius: 12px;
+    padding-left: 14px;
+    padding-right: 14px;
+    flex-direction: row;
+    align-items: center;
+  }
+  .input-text {
+    font-size: 22px;
+    color: #ffffff;
+  }
+  .input-placeholder {
+    font-size: 22px;
+    color: #888888;
+  }
+  .list-item-btn {
+    width: 240px;
+    height: 60px;
+  }
+  .translate-btn {
+    width: 220px;
+    height: 52px;
+    margin-left: 10px;
+    margin-right: 10px;
+    background-color: #1691fa;
+    border-radius: 26px;
+    justify-content: center;
+    align-items: center;
+  }
+  .translate-btn:active {
+    background-color: #0d7ad0;
+  }
+  .translate-text {
+    font-size: 26px;
+    color: #ffffff;
+    font-weight: bold;
+  }
+  .list-item-result {
+    width: 240px;
+  }
+  .result-section {
+    width: 220px;
+    margin-left: 10px;
+    margin-right: 10px;
+    flex-direction: column;
+  }
+  .section-label {
+    font-size: 20px;
+    color: #888888;
+    margin-bottom: 6px;
+  }
+  .result-box {
+    width: 100%;
+    background-color: #1a1a1a;
+    border-radius: 12px;
+    padding: 12px;
+    min-height: 60px;
+  }
+  .result-text {
+    font-size: 22px;
+    color: #ffffff;
+    line-height: 1.4;
+  }
+  .loading-mask {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 240px;
+    height: 240px;
+    background-color: rgba(0, 0, 0, 0.7);
+    justify-content: center;
+    align-items: center;
+  }
+  .loading-box {
+    background-color: #2a2a2a;
+    padding: 14px 28px;
+    border-radius: 14px;
+  }
+  .loading-text {
+    font-size: 22px;
+    color: #ffffff;
+  }
+</style>
+
+<script>
+  import fetch from '@system.fetch';
+  import prompt from '@system.prompt';
+  import input from '@system.input';
+
+  export default {
+    data: {
+      sourceText: '',
+      targetText: '',
+      loading: false
+    },
+    openInput() {
+      input.openInputMethod({
+        inputText: this.sourceText,
+        success: (res) => {
+          this.sourceText = res.outputText.trim();
+        },
+        fail: (err, code) => {
+          console.log('input fail code=' + code);
+        }
+      });
+    },
+    doTranslate() {
+      let text = this.sourceText.trim();
+      if (!text) {
+        prompt.showToast({ message: '请输入内容' });
+        return;
+      }
+      if (this.loading) return;
+
+      this.loading = true;
+      this.targetText = '';
+
+      let postData = JSON.stringify({ text: text });
+
+      fetch.fetch({
+        url: 'https://api.pearapi.ai/api/translate/ai',
+        method: 'POST',
+        header: { 'Content-Type': 'application/json' },
+        data: postData,
+        success: (res) => {
+          try {
+            let data = JSON.parse(res.data);
+            if (data.code === 200 && data.data) {
+              this.targetText = data.data;
+            } else {
+              this.targetText = '翻译失败，请重试';
+            }
+          } catch (e) {
+            this.targetText = '数据解析失败';
+          }
+          this.loading = false;
+        },
+        fail: () => {
+          prompt.showToast({ message: '网络失败' });
+          this.targetText = '网络连接失败';
+          this.loading = false;
+        }
+      });
+    }
+  };
+</script>

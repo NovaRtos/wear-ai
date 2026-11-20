@@ -1,0 +1,308 @@
+<template>
+  <div class="page">
+    <div class="header">
+      <text class="header-title">AI对话</text>
+    </div>
+    <list class="message-list" id="msgList">
+      <list-item class="msg-list-item" for="{{(idx, msg) in messages}}" tid="{{idx}}">
+        <div class="message-item {{msg.role === 'user' ? 'user-item' : 'ai-item'}}">
+          <div
+            class="bubble {{msg.role === 'user' ? 'user-bubble' : 'ai-bubble'}} {{msg.status === 'failed' ? 'bubble-failed' : ''}}"
+            @longpress="onLongPress(idx)"
+          >
+            <text if="{{msg.reasoning}}" class="reasoning-text">{{msg.reasoning}}</text>
+            <text class="message-text {{msg.status === 'error' ? 'error-text' : ''}}">{{msg.content}}</text>
+          </div>
+        </div>
+      </list-item>
+    </list>
+    <div class="input-area">
+      <div class="input-box" @click="openInput">
+        <text class="{{inputText ? 'input-text' : 'input-placeholder'}}">{{inputText || '点击输入...'}}</text>
+      </div>
+      <div class="send-btn" @click="sendMessage">
+        <text class="send-text">发送</text>
+      </div>
+    </div>
+    <div class="loading-mask" show="{{loading}}">
+      <div class="loading-box">
+        <text class="loading-text">思考中...</text>
+      </div>
+    </div>
+
+    <div class="resend-mask" show="{{showResend}}" @click="closeResend">
+      <div class="resend-box" @click="noop">
+        <text class="resend-title">重新发送该消息？</text>
+        <div class="resend-actions">
+          <div class="resend-btn cancel" @click="closeResend">
+            <text class="resend-btn-text">取消</text>
+          </div>
+          <div class="resend-btn confirm" @click="doResend">
+            <text class="resend-btn-text">重发</text>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style>
+  .page { width: 240px; height: 240px; background-color: #000000; flex-direction: column; }
+  .header { width: 240px; height: 42px; justify-content: center; align-items: center; }
+  .header-title { font-size: 26px; color: #ffffff; font-weight: bold; }
+  .message-list { flex: 1; width: 240px; padding: 0; }
+  .msg-list-item { width: 240px; }
+  .message-item { width: 240px; margin-bottom: 8px; flex-direction: row; }
+  .user-item { justify-content: flex-end; }
+  .ai-item { justify-content: flex-start; }
+  .bubble { width: 230px; flex-shrink: 0; padding: 10px 14px; border-radius: 16px; }
+  .bubble-failed { border-width: 2px; border-color: #ff4d4f; }
+  .user-bubble { background-color: #1691fa; }
+  .ai-bubble { background-color: #2a2a2a; }
+  .reasoning-text { font-size: 18px; color: #aaaaaa; margin-bottom: 6px; line-height: 1.4; }
+  .message-text { font-size: 22px; color: #ffffff; line-height: 1.4; }
+  .error-text { color: #ff4d4f; }
+  .input-area { width: 240px; height: 52px; flex-direction: row; align-items: center; }
+  .input-box { flex: 1; height: 44px; background-color: #1a1a1a; border-radius: 22px; padding-left: 16px; padding-right: 16px; flex-direction: row; align-items: center; }
+  .input-text { font-size: 22px; color: #ffffff; }
+  .input-placeholder { font-size: 22px; color: #888888; }
+  .send-btn { width: 66px; height: 44px; margin-left: 8px; background-color: #1691fa; border-radius: 22px; justify-content: center; align-items: center; flex-shrink: 0; }
+  .send-btn:active { background-color: #0d7ad0; }
+  .send-text { font-size: 22px; color: #ffffff; font-weight: bold; }
+  .loading-mask { position: fixed; top: 0; left: 0; width: 240px; height: 240px; background-color: rgba(0, 0, 0, 0.7); justify-content: center; align-items: center; }
+  .loading-box { background-color: #2a2a2a; padding: 14px 28px; border-radius: 14px; }
+  .loading-text { font-size: 22px; color: #ffffff; }
+  .resend-mask { position: fixed; top: 0; left: 0; width: 240px; height: 240px; background-color: rgba(0, 0, 0, 0.75); justify-content: center; align-items: center; }
+  .resend-box { width: 200px; background-color: #2a2a2a; border-radius: 16px; padding: 16px; flex-direction: column; align-items: center; }
+  .resend-title { font-size: 22px; color: #ffffff; margin-bottom: 16px; }
+  .resend-actions { flex-direction: row; width: 100%; }
+  .resend-btn { flex: 1; height: 44px; border-radius: 22px; justify-content: center; align-items: center; }
+  .resend-btn.cancel { background-color: #3a3a3a; margin-right: 8px; }
+  .resend-btn.confirm { background-color: #1691fa; margin-left: 8px; }
+  .resend-btn-text { font-size: 22px; color: #ffffff; font-weight: bold; }
+</style>
+
+<script>
+  import fetch from '@system.fetch';
+  import prompt from '@system.prompt';
+  import file from '@system.file';
+  import storage from '@system.storage';
+  import input from '@system.input';
+
+  const PROXY_URL = 'https://rtos.okii.sbs/ai/chat.php';
+  const XF_BASE = 'https://api.pearapi.ai/api/xfai';
+
+  export default {
+    data: {
+      messages: [],
+      inputText: '',
+      loading: false,
+      showResend: false,
+      resendIndex: -1
+    },
+    onInit() {
+      this.loadHistory();
+    },
+    onReady() {
+      this.scrollToBottom();
+    },
+    noop() {},
+    loadHistory() {
+      file.readText({
+        uri: 'internal://app/chat_history.json',
+        success: (data) => {
+          try {
+            let history = JSON.parse(data.text);
+            if (Array.isArray(history) && history.length > 0) {
+              this.messages = history;
+              this.scrollToBottom();
+              return;
+            }
+          } catch (e) {}
+          this.setDefaultMessages();
+        },
+        fail: () => {
+          this.setDefaultMessages();
+        }
+      });
+    },
+    setDefaultMessages() {
+      this.messages = [
+        { role: 'assistant', content: '你好！我是腕上AI，有什么可以帮助你的？', status: 'success' }
+      ];
+      this.saveHistory();
+      this.scrollToBottom();
+    },
+    saveHistory() {
+      try {
+        file.writeText({
+          uri: 'internal://app/chat_history.json',
+          text: JSON.stringify(this.messages)
+        });
+      } catch (e) {}
+    },
+    openInput() {
+      input.openInputMethod({
+        inputText: this.inputText,
+        success: (res) => {
+          this.inputText = res.outputText.trim();
+        },
+        fail: (err, code) => {
+          console.log('input fail code=' + code);
+        }
+      });
+    },
+    sendMessage() {
+      let text = this.inputText.trim();
+      if (!text) {
+        prompt.showToast({ message: '请输入消息' });
+        return;
+      }
+      if (this.loading) return;
+      this.inputText = '';
+      this.messages.push({ role: 'user', content: text, status: 'success' });
+      this.saveHistory();
+      this.scrollToBottom();
+      this.doRequest(text);
+    },
+    doRequest(text) {
+      this.loading = true;
+      storage.get({
+        key: 'currentModel',
+        success: (data) => {
+          let model = (data && data.length > 0) ? data : 'Spark-X2.6';
+          this.realRequest(text, model);
+        },
+        fail: () => {
+          this.realRequest(text, 'Spark-X2.6');
+        }
+      });
+    },
+    realRequest(text, model) {
+      if (model === 'Spark-X2.6') {
+        this.sendToXf(text);
+      } else {
+        this.sendToProxy(text, model);
+      }
+    },
+    sendToXf(text) {
+      let url = XF_BASE + '?message=' + encodeURIComponent(text);
+      fetch.fetch({
+        url: url,
+        method: 'GET',
+        success: (res) => {
+          let raw = typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
+          try {
+            let data = JSON.parse(raw);
+            if (data.code === 200 && data.data && data.data.answer) {
+              this.onSuccess({ content: data.data.answer, reasoning: '' });
+            } else {
+              let desc = data.msg || data.message || '返回无 answer 字段';
+              this.onFail('接口错误 code=' + (data.code !== undefined ? data.code : 'null') + ' desc=' + desc);
+            }
+          } catch (e) {
+            this.onFail('解析失败 code=' + (res.code || 'null') + ' desc=' + e.message);
+          }
+        },
+        fail: (data, code) => {
+          let msg = typeof data === 'string' ? data : JSON.stringify(data);
+          this.onFail('网络失败 code=' + code + ' desc=' + msg);
+        }
+      });
+    },
+    sendToProxy(text, model) {
+      let body = 'msg=' + encodeURIComponent(text) + '&model=' + encodeURIComponent(model);
+      fetch.fetch({
+        url: PROXY_URL,
+        method: 'POST',
+        header: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        data: body,
+        success: (res) => {
+          let raw = typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
+          try {
+            let data = JSON.parse(raw);
+            if (data.code === 200 && data.data) {
+              this.onSuccess({ content: data.data, reasoning: data.reasoning || '' });
+            } else {
+              this.onFail(data.msg || '请求失败');
+            }
+          } catch (e) {
+            this.onFail('解析失败: ' + e.message);
+          }
+        },
+        fail: (data, code) => {
+          let msg = typeof data === 'string' ? data : JSON.stringify(data);
+          this.onFail('网络失败 code=' + code + ' desc=' + msg);
+        }
+      });
+    },
+    onSuccess(res) {
+      this.messages.push({
+        role: 'assistant',
+        content: res.content,
+        reasoning: res.reasoning || '',
+        status: 'success'
+      });
+      this.saveHistory();
+      this.loading = false;
+      this.scrollToBottom();
+    },
+    onFail(err) {
+      console.log('request fail', err);
+      for (let i = this.messages.length - 1; i >= 0; i--) {
+        if (this.messages[i].role === 'user' && this.messages[i].status === 'success') {
+          this.messages[i].status = 'failed';
+          break;
+        }
+      }
+      this.messages.push({
+        role: 'assistant',
+        content: err,
+        status: 'error'
+      });
+      this.saveHistory();
+      this.loading = false;
+      this.scrollToBottom();
+    },
+    onLongPress(idx) {
+      let msg = this.messages[idx];
+      if (msg && msg.role === 'user') {
+        this.resendIndex = idx;
+        this.showResend = true;
+      }
+    },
+    closeResend() {
+      this.showResend = false;
+      this.resendIndex = -1;
+    },
+    doResend() {
+      let idx = this.resendIndex;
+      if (idx < 0 || idx >= this.messages.length) {
+        this.closeResend();
+        return;
+      }
+      let text = this.messages[idx].content;
+      this.messages.splice(idx);
+      this.saveHistory();
+      this.closeResend();
+      if (this.loading) return;
+      this.messages.push({ role: 'user', content: text, status: 'success' });
+      this.saveHistory();
+      this.scrollToBottom();
+      this.doRequest(text);
+    },
+    scrollToBottom() {
+      setTimeout(() => {
+        const listElem = this.$element('msgList');
+        if (listElem && listElem.scrollTo) {
+          let lastIndex = this.messages.length - 1;
+          if (lastIndex >= 0) {
+            listElem.scrollTo({ index: lastIndex });
+          }
+        }
+      }, 300);
+    }
+  };
+</script>
